@@ -84,6 +84,78 @@ The next example suggests [Avoid Reconciliation](https://reactjs.org/docs/optimi
 
 Remember that helpful page that suggested this?  Well none of it actually tells you how to do this with functional components.  The only page on the react website devoted to Performance Optimizations doesn't bother to give you any information about how to optimize using hooks (which is now the recommended way of using React).  Instead, details about hook optimizations is buried in the [Hooks FAQs](https://reactjs.org/docs/hooks-faq.html#performance-optimizations).
 
+First we pull the inner element into it's own React component in order to benefit from the ability to prevent re-renders.  Functionally this should be pretty much the same.  The profiler shows us we're now at 4ms - 16ms.  That last number should look familiar...we're already teetering into dipping below 60fps.
+
+![](/images/react-separate-component.png)
+
+The code below still triggers a full render every time the hovered element id changes.  This is because we are passing in the `hoveredElementId` to the element and therefore each child's props are changing.  We have a couple of options for how to fix this.  An element only needs to re-render if the `hoveredElementId` is the current element (in which case we need to update the backgroundColor), or the previous hoveredElementId was the current element (in which case we need to remove the backgroundColor style).
+
+Option 1:
+
+
+
+```ts
+import React, { useState } from "react";
+import "./App.css";
+
+type ElementProps = {
+  id: string;
+  hoveredElementId: string;
+  onMouseEnter: (id: string) => void;
+  onMouseLeave: (id: string) => void;
+};
+
+function Div(props: ElementProps) {
+  const isHovered = props.hoveredElementId === props.id;
+
+  return (
+    <div
+      style={{ marginBottom: 8, backgroundColor: isHovered ? "#eee" : "" }}
+      onMouseEnter={() => {
+        props.onMouseEnter(props.id);
+      }}
+      onMouseLeave={() => {
+        props.onMouseLeave(props.id);
+      }}
+    >
+      div
+    </div>
+  );
+}
+
+function App() {
+  const [hoveredElementId, setHoveredElementId] = useState("");
+
+  const handleMouseEnter = (id: string) => {
+    setHoveredElementId(id);
+  };
+
+  const handleMouseLeave = (id: string) => {
+    if (id == hoveredElementId) {
+      setHoveredElementId("");
+    }
+  };
+
+  const elements = [];
+
+  for (let i = 0; i < 500; i++) {
+    elements.push(
+      <Div
+        key={i}
+        id={String(i)}
+        hoveredElementId={hoveredElementId}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      />
+    );
+  }
+
+  return <>{elements}</>;
+}
+
+export default App;
+```
+
 Below is the updated code required to prevent a full re-render on every single element when an element is hovered.
 
 ## Resources
