@@ -1,46 +1,91 @@
-# Getting Started with Create React App
+# Am I Overreacting? Or is React Over-Reacting?
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+When I first started doing web development, it was primarily with Python/Django.  Everything was server side rendered and not once did I ever think about "rendering performance".  10 years later and with computers at least twice as fast rendering performance is still somehow an issue.  Single Page Apps (SPAs) and frontend libraries like React have taken over and encouraged and enabled highly dynamic web pages.  Unfortunately, in my experience, the default recommended way to write React code does not actually support this very well.  After several years of fighting with React, I'm pretty ready to throw in the towel.  In this post I will explore the problems that come with standard React code, the recommended options for improving React performance, and finally counter these with examples in vanilla JS.
 
-## Available Scripts
+## What We're Building
 
-In the project directory, you can run:
+Coming up with a succinct example is difficult as it is really the complexities of a real project that better demonstrate how everything comes together.  However, I think it should be possible to see even from these simple examples the problems that arise.
 
-### `npm start`
+As mentioned at the start, this post is mostly focused on highly dynamic web pages.  As such, the example we will go over is a drag and drop interface with some very basic functionality to demonstrate the issues that arise.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## Initialize project using Create React App
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+```
+npx create-react-app react-overreact --template typescript
+```
 
-### `npm test`
+## Hover Element State
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+In this first example, we will capture the current hovered element as state and use this to update the background color of the element. Before you raise your pitchforks and say that this could simply be done with a CSS `:hover`, imagine that this hover state is needed for something else and we are just using the `backgroundColor` property as a way to visualize the state change.
 
-### `npm run build`
+### Naive React Solution
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+![Profiling Screenshot](/images/react-naive-hover.png)
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+On an M1 Macbook Pro a single render clocks in at between 3ms and 9ms.  You can also see that every time a new element is hovered a new render is triggered.  If you're thinking under 10ms sounds pretty fast, please remember that the M1 chip is one of the fastest single threaded performing CPUs currently available.  It's easy to imagine that there would be older devices that could be at least twice as slow.  This is also all with the simplest text element one could ever imagine.  Even just a few more elements inside the repeated element would start scaling even more poorly.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+I would like to acknowledge that there should be "some" overhead from using the development build, but I wouldn't expect turning on production mode would have a substantial impact on this example, and will likely follow up with numbers to show this.
 
-### `npm run eject`
+I come from a gaming development background where it is ingrained in you that your frame needs to complete all processing in under 16ms in order to maintain 16 frames per second.  With just 500 elements I have nearly passed this threshold already with React.  Once a frame takes more than 16ms, the stutter becomes noticeable and renders get queued up leading to a horrendous user experience.
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+See the code below for what this looks like.
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```ts
+// App.tsx
+import React, { useState } from "react";
+import "./App.css";
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+function App() {
+  const [hoveredElementId, setHoveredElementId] = useState("");
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+  const elements = [];
 
-## Learn More
+  for (let i = 0; i < 500; i++) {
+    const elementId = String(i);
+    const isHovered = hoveredElementId === elementId;
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+    elements.push(
+      <div 
+        key={i}
+        style={{ marginBottom: 8, backgroundColor: isHovered ? "#eee" : "" }}
+        onMouseEnter={() => {
+          setHoveredElementId(elementId);
+        }}
+        onMouseLeave={()=> {
+          if (elementId == hoveredElementId) {
+            setHoveredElementId("");
+          }
+        }}
+      >
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
+        tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
+        veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
+        commodo consequat. Duis aute irure dolor in reprehenderit in voluptate
+        velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint
+        occaecat cupidatat non proident, sunt in culpa qui officia deserunt
+        mollit anim id est laborum.
+      </div>
+    );
+  }
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+  return <>{elements}</>;
+}
+
+export default App;
+```
+
+### Optimizing Performance in React
+
+On React's [Optimizing Performance page](https://reactjs.org/docs/optimizing-performance.html), they claim "For many applications, using React will lead to a fast user interface without doing much work to specifically optimize for performance."  In my opinion, this should be re-worded as "most applications won't have enough elements to worry about React's default excessive rendering".
+
+One of the first suggestions in this list is [Virualize Long Lists](https://reactjs.org/docs/optimizing-performance.html#virtualize-long-lists).  Per their docs: "If your application renders long lists of data (hundreds or thousands of rows), we recommend using a technique known as “windowing”".  This makes sense in the realm of an infinite list, but in the low 100s of elements, this is an unnecessary complication to add on top of things. In the real world example I was working with that led to this article there were highly nested components, which means that sometimes a single element was quite simple, and other times a single element could have several other components.  Windowing with this would require computing the dynamic height of every single element probably leading to even worse performance than just showing all of the elements in the first place.
+
+The next example suggests [Avoid Reconciliation](https://reactjs.org/docs/optimizing-performance.html#avoid-reconciliation). Essentially suggesting to update the component so that if the props haven't change don't render the component.  When I first learned this I had to do a double take.  I thought the entire point of React was that if the props didn't change then there's no work to be done in a component.  But turns out React just blindly re-renders the entire subtree if a prop of a parent changes.
+
+Remember that helpful page that suggested this?  Well none of it actually tells you how to do this with functional components.  The only page on the react website devoted to Performance Optimizations doesn't bother to give you any information about how to optimize using hooks (which is now the recommended way of using React).  Instead, details about hook optimizations is buried in the [Hooks FAQs](https://reactjs.org/docs/hooks-faq.html#performance-optimizations).
+
+Below is the updated code required to prevent a full re-render on every single element when an element is hovered.
+
+## Resources
+
+https://reactjs.org/docs/optimizing-performance.html

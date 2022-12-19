@@ -1,26 +1,34 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React, { useState } from "react";
+import "./App.css";
 
 function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+  const [hoveredElementId, setHoveredElementId] = useState("");
+
+  const elements = [];
+
+  for (let i = 0; i < 500; i++) {
+    const elementId = String(i);
+    const isHovered = hoveredElementId === elementId;
+
+    elements.push(
+      <div 
+        key={i}
+        style={{ marginBottom: 8, backgroundColor: isHovered ? "#eee" : "" }}
+        onMouseEnter={() => {
+          setHoveredElementId(elementId);
+        }}
+        onMouseLeave={()=> {
+          if (elementId == hoveredElementId) {
+            setHoveredElementId("");
+          }
+        }}
+      >
+        div
+      </div>
+    );
+  }
+
+  return <>{elements}</>;
 }
 
 export default App;
