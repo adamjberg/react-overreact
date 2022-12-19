@@ -90,10 +90,6 @@ First we pull the inner element into it's own React component in order to benefi
 
 The code below still triggers a full render every time the hovered element id changes.  This is because we are passing in the `hoveredElementId` to the element and therefore each child's props are changing.  We have a couple of options for how to fix this.  An element only needs to re-render if the `hoveredElementId` is the current element (in which case we need to update the backgroundColor), or the previous hoveredElementId was the current element (in which case we need to remove the backgroundColor style).
 
-Option 1:
-
-
-
 ```ts
 import React, { useState } from "react";
 import "./App.css";
@@ -155,6 +151,98 @@ function App() {
 
 export default App;
 ```
+
+### Use `React.memo` with `propsAreEqual` callback
+
+In the code below, we check whether the `prevProps.hoveredElementId` or `nextProps.hoveredElementId` match the id of our element.  If it does, we return `false` to indicate that the component should be re-rendered. We also need to make sure that changes to other props trigger a re-render as so we make sure to perform and equality check on the rest of the properties using lodash's `isEqual`.  By default, React.memo does a shallow compare, but as far as I can tell, they don't actually expose a convenient function for you to use to do your own shallow compare.
+
+![](/images/react-memo-fail.png)
+
+Unfortunately, this first attempt fails.  The reason for this is incredibly non-obvious.  When the `hoveredElementId` state changes it triggers a re-render of the `App` component.  I still have a very poor mental model of what React is actually doing behind the scenes, but essentially `handleMouseEnter` and `handleMouseLeave` get redefined on each render. Which means when they get passed back in to `MemoedElement` they are no longer the same reference, which causes the `MemoedElement` to fully re-render itself again.
+
+```ts
+import _ from "lodash";
+import React, { useState } from "react";
+import "./App.css";
+
+type ElementProps = {
+  id: string;
+  hoveredElementId: string;
+  onMouseEnter: (id: string) => void;
+  onMouseLeave: (id: string) => void;
+};
+
+function Element(props: ElementProps) {
+  const isHovered = props.hoveredElementId === props.id;
+
+  return (
+    <div
+      style={{ marginBottom: 8, backgroundColor: isHovered ? "#eee" : "" }}
+      onMouseEnter={() => {
+        props.onMouseEnter(props.id);
+      }}
+      onMouseLeave={() => {
+        props.onMouseLeave(props.id);
+      }}
+    >
+      div
+    </div>
+  );
+}
+
+const MemoedElement = React.memo(Element, (prevProps, nextProps) => {
+  const { hoveredElementId: oldHoveredElementId, ...oldProps } = prevProps;
+  const { hoveredElementId: newHoveredElementId, ...newProps } = nextProps;
+
+  if (oldHoveredElementId === nextProps.id) {
+    return false;
+  }
+  if (newHoveredElementId === nextProps.id) {
+    return false;
+  }
+  return _.isEqual(oldProps, newProps);
+});
+
+function App() {
+  const [hoveredElementId, setHoveredElementId] = useState("");
+
+  const handleMouseEnter = (id: string) => {
+    setHoveredElementId(id);
+  };
+
+  const handleMouseLeave = (id: string) => {
+    if (id === hoveredElementId) {
+      setHoveredElementId("");
+    }
+  };
+
+  const elements = [];
+
+  for (let i = 0; i < 500; i++) {
+    elements.push(
+      <MemoedElement
+        key={i}
+        id={String(i)}
+        hoveredElementId={hoveredElementId}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      />
+    );
+  }
+
+  return <>{elements}</>;
+}
+
+export default App;
+```
+
+### useCallback to Prevent Callbacks from Triggering Unnecessary Renders
+
+
+
+![](/images/react-memo-1.png)
+
+Success, our render times drop to 1ms and you can see from the FlameGraph that it is no longer rendering the MemoedElement components.  However, there's a subtle bug here that wouldn't reveal itself until components shift around more.  Our memoization code is ignoring changes to `onMouseEnter` and `onMouseLeave`. This should mean that it's possible for these functions to eventually stop working as other components re-rendering will cause the callbacks `handleMouseEnter` and `handleMouseLeave` to 
 
 Below is the updated code required to prevent a full re-render on every single element when an element is hovered.
 

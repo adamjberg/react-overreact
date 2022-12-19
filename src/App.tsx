@@ -1,3 +1,4 @@
+import _ from "lodash";
 import React, { useState } from "react";
 import "./App.css";
 
@@ -26,6 +27,19 @@ function Element(props: ElementProps) {
   );
 }
 
+const MemoedElement = React.memo(Element, (prevProps, nextProps) => {
+  const { hoveredElementId: oldHoveredElementId, ...oldProps } = prevProps;
+  const { hoveredElementId: newHoveredElementId, ...newProps } = nextProps;
+
+  if (oldHoveredElementId === nextProps.id) {
+    return false;
+  }
+  if (newHoveredElementId === nextProps.id) {
+    return false;
+  }
+  return _.isEqual(oldProps, newProps);
+});
+
 function App() {
   const [hoveredElementId, setHoveredElementId] = useState("");
 
@@ -34,7 +48,7 @@ function App() {
   };
 
   const handleMouseLeave = (id: string) => {
-    if (id == hoveredElementId) {
+    if (id === hoveredElementId) {
       setHoveredElementId("");
     }
   };
@@ -43,7 +57,7 @@ function App() {
 
   for (let i = 0; i < 500; i++) {
     elements.push(
-      <Element
+      <MemoedElement
         key={i}
         id={String(i)}
         hoveredElementId={hoveredElementId}
