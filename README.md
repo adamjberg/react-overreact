@@ -260,6 +260,8 @@ This should hold true as well for writing React code, but the process of optimiz
 
 The code below is still somewhat reasonable to follow, but the subtleties of dependency arrays and arePropsEqual make it easy to cause new problems.
 
+The FAQ next suggests [`useReducer` to avoid having to pass callbacks around multiple components](https://reactjs.org/docs/hooks-faq.html#how-to-avoid-passing-callbacks-down)
+
 ```ts
 import _ from "lodash";
 import React, { useCallback, useState } from "react";
