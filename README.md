@@ -260,7 +260,7 @@ This should hold true as well for writing React code, but the process of optimiz
 
 The code below is still somewhat reasonable to follow, but the subtleties of dependency arrays and arePropsEqual make it easy to cause new problems.
 
-The FAQ next suggests [`useReducer` to avoid having to pass callbacks around multiple components](https://reactjs.org/docs/hooks-faq.html#how-to-avoid-passing-callbacks-down)
+The FAQ next suggests [`useReducer` to avoid having to pass callbacks around multiple components](https://reactjs.org/docs/hooks-faq.html#how-to-avoid-passing-callbacks-down).  I won't go over what this would look like in this article (though you may see a future one that does).  
 
 ```ts
 import _ from "lodash";
@@ -338,11 +338,38 @@ function App() {
 export default App;
 ```
 
-![](/images/react-memo-1.png)
+In the span of this article I have introduced at least 3 separate major React concepts in order to get performance that arguably should be default behaviour. I have long questioned what React is actually giving me, and the frustrations I have experienced in the realm of performance is extremely disappointing.
 
-Success, our render times drop to 1ms and you can see from the FlameGraph that it is no longer rendering the MemoedElement components.  However, there's a subtle bug here that wouldn't reveal itself until components shift around more.  Our memoization code is ignoring changes to `onMouseEnter` and `onMouseLeave`. This should mean that it's possible for these functions to eventually stop working as other components re-rendering will cause the callbacks `handleMouseEnter` and `handleMouseLeave` to 
+In a future article, I'd like to explore and share some experiments I have been putting together to get myself out of React.  But as a teaser, below is code for a similar example in plain old JavaScript.
 
-Below is the updated code required to prevent a full re-render on every single element when an element is hovered.
+The React Profiler can no longer be used, but the Chrome Performance tab shows that the worst frame was 2ms of Scripting.  All the other ones come out as 0ms.  
+
+![](/images/vanilla.png)
+
+```js
+const root = document.createElement("div");
+document.body.appendChild(root);
+
+for (let i = 0; i < 500; i++) {
+  const element = document.createElement('div');
+  element.style.marginBottom = "8px";
+  element.innerText = "div";
+
+  element.addEventListener("mouseenter", () => {
+    element.style.backgroundColor = "#eee"
+  });
+
+  element.addEventListener("mouseleave", () => {
+    element.style.backgroundColor = ""
+  });
+  
+  root.appendChild(element);
+}
+```
+
+## Conclusion
+
+React supporters will claim that this is an unfair representation and that React's benefits kick in as your project grows larger.  In time, I will share how the simple code you see below can be used to sustain large projects without a problem.  Instead of having to learn React's convoluted ways of working around its component lifecycle, you can instead learn to manage this yourself.  I have been doing this for the last several months on my own projects and I don't think I'll be turning back.
 
 ## Resources
 
