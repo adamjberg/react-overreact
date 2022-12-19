@@ -1,5 +1,5 @@
 import _ from "lodash";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import "./App.css";
 
 type ElementProps = {
@@ -43,15 +43,15 @@ const MemoedElement = React.memo(Element, (prevProps, nextProps) => {
 function App() {
   const [hoveredElementId, setHoveredElementId] = useState("");
 
-  const handleMouseEnter = (id: string) => {
+  const handleMouseEnter = useCallback((id: string) => {
     setHoveredElementId(id);
-  };
+  }, [setHoveredElementId]);
 
-  const handleMouseLeave = (id: string) => {
+  const handleMouseLeave = useCallback((id: string) => {
     if (id === hoveredElementId) {
       setHoveredElementId("");
     }
-  };
+  }, [setHoveredElementId]);
 
   const elements = [];
 

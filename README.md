@@ -238,7 +238,103 @@ export default App;
 
 ### useCallback to Prevent Callbacks from Triggering Unnecessary Renders
 
+Another dive through the Hooks FAQ leads us to ["Are hooks slow because of creating functions in render"](https://reactjs.org/docs/hooks-faq.html#are-hooks-slow-because-of-creating-functions-in-render).  
 
+| Traditionally, performance concerns around inline functions in React have been related to how passing new callbacks on each render breaks shouldComponentUpdate optimizations in child components
+
+Here React admits to the fact that callbacks in functional components are broken by default.  In the code below I have updated to wrap my callbacks in `useCallback`.  You can see in the profiler screenshot that this has successfully brought us the goal of not re-rendering our component.
+
+![](/images/react-memo-use-callback.png)
+
+In order for this to work, any callback that exists must be wrapped in this `useCallback`. Don't dare to miss something in that dependency array or you'll find yourself with some weird behaviour.
+
+```ts
+const handleMouseEnter = useCallback((id: string) => {
+  setHoveredElementId(id);
+}, [setHoveredElementId]);
+```
+
+It's commonly said that "Premature Optimization is the Root of All Evil" in programming.  This is often true and the suggested approach is to profile and specifically target problem areas only if they present themselves as problems.
+
+This should hold true as well for writing React code, but the process of optimizing after the fact in React is unenjoyable at best.  By the time you know that performance is a problem, you have several different components that all need to be individually memoized.  Once you've done this you need to seek out all instances where callbacks are giving you grief.
+
+The code below is still somewhat reasonable to follow, but the subtleties of dependency arrays and arePropsEqual make it easy to cause new problems.
+
+```ts
+import _ from "lodash";
+import React, { useCallback, useState } from "react";
+import "./App.css";
+
+type ElementProps = {
+  id: string;
+  hoveredElementId: string;
+  onMouseEnter: (id: string) => void;
+  onMouseLeave: (id: string) => void;
+};
+
+function Element(props: ElementProps) {
+  const isHovered = props.hoveredElementId === props.id;
+
+  return (
+    <div
+      style={{ marginBottom: 8, backgroundColor: isHovered ? "#eee" : "" }}
+      onMouseEnter={() => {
+        props.onMouseEnter(props.id);
+      }}
+      onMouseLeave={() => {
+        props.onMouseLeave(props.id);
+      }}
+    >
+      div
+    </div>
+  );
+}
+
+const MemoedElement = React.memo(Element, (prevProps, nextProps) => {
+  const { hoveredElementId: oldHoveredElementId, ...oldProps } = prevProps;
+  const { hoveredElementId: newHoveredElementId, ...newProps } = nextProps;
+
+  if (oldHoveredElementId === nextProps.id) {
+    return false;
+  }
+  if (newHoveredElementId === nextProps.id) {
+    return false;
+  }
+  return _.isEqual(oldProps, newProps);
+});
+
+function App() {
+  const [hoveredElementId, setHoveredElementId] = useState("");
+
+  const handleMouseEnter = useCallback((id: string) => {
+    setHoveredElementId(id);
+  }, [setHoveredElementId]);
+
+  const handleMouseLeave = useCallback((id: string) => {
+    if (id === hoveredElementId) {
+      setHoveredElementId("");
+    }
+  }, [setHoveredElementId]);
+
+  const elements = [];
+
+  for (let i = 0; i < 500; i++) {
+    elements.push(
+      <MemoedElement
+        key={i}
+        id={String(i)}
+        hoveredElementId={hoveredElementId}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      />
+    );
+  }
+
+  return <>{elements}</>;
+}
+
+export default App;
+```
 
 ![](/images/react-memo-1.png)
 
